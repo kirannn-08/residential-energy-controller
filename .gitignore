@@ -1,0 +1,13 @@
+# python
+__pycache__/
+*.pyc 
+
+# Data & Models
+data/raw/*
+data/processed/*
+data/models/*
+data/logs/*
+
+# Enviornments
+.env 
+.venv
