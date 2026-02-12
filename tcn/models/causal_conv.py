@@ -37,7 +37,7 @@ class CasualConv1d(nn.Module):
 
         return out
     
-    """implementing casuality makes sure that our system o/p at time t
+    """implementing causality makes sure that our system o/p at time t
         never depends on future inputs , hence making our model to not train on 
         predicted outcomes rather on actual available and present data.
     """
