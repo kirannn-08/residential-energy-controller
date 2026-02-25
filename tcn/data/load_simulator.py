@@ -1,57 +1,83 @@
-import numpy as np 
-
-def simulate_house_day(minuites = 1440):
-    """
-    using this to simulate realistic  multi room residential load profile 
-    returns total load and per room load matriix
-    """
-
-    t = np.linspace(0 , 24 , minuites)
-    # setting up base loads
-
-    router = 0.05
-    fridge = 0.15 + 0.05*np.sin(2* np.pi * t * 4) # added function for compressor cycles
-
-    #bedroom
-    bedroom = 0.1*((t>=6) & (t <= 8)) # simulating morning condition
-    bedroom += 0.15 * ((t >= 20) & (t <= 23)) #simulating night condition
+import numpy as np
 
 
-    # living room 
+def simulate_house_day(minutes=1440):
 
-    hall = 0.2 * ((t >= 18 ) & (t <= 23)) #simulating evening usage 
+    t = np.linspace(0, 24, minutes)
 
-    # kitchen base usage 
-    kitchen = 0.3 * ((t >= 7) & (t <= 9))
-    kitchen += 0.3 * ((t >= 19) & (t <= 21))
+    # -------------------------
+    # Base constant loads
+    # -------------------------
+    router = 0.05 * np.ones(minutes)
 
-    #adding random spike events 
+    # Fridge compressor cycling (random duty cycle)
+    fridge = np.zeros(minutes)
+    i = 0
+    while i < minutes:
+        on_duration = np.random.randint(10, 25)
+        off_duration = np.random.randint(20, 40)
+        fridge[i:i+on_duration] = 0.18
+        i += on_duration + off_duration
 
-    spikes = np.zeros(minuites)
-
-    for _ in range(np.random.randint(5, 10)):
-        start = np.random.randint(0, minuites - 10)
-        duration = np.random.randint(2, 8)
-        power = np.random.uniform(0.8, 1.5) #setting up a high power device
-        spikes[start:start + duration] += power 
-
-    #combining loads 
-
-    total = (
-        router
-        + fridge
-        + bedroom
-        + hall
-        + kitchen
-        + spikes
+    # -------------------------
+    # Occupancy probability curve
+    # -------------------------
+    occupancy = (
+        0.2
+        + 0.6 * ((t >= 6) & (t <= 9))
+        + 0.7 * ((t >= 18) & (t <= 23))
     )
 
-    # setting up a small noise 
+    # -------------------------
+    # Bedroom (fan + light)
+    # -------------------------
+    bedroom = np.zeros(minutes)
+    for i in range(minutes):
+        if np.random.rand() < occupancy[i] * 0.02:
+            duration = np.random.randint(30, 120)
+            bedroom[i:i+duration] += np.random.uniform(0.1, 0.25)
 
-    total += 0.02* np.random.randn(minuites)
+    # -------------------------
+    # Hall (TV + fan)
+    # -------------------------
+    hall = np.zeros(minutes)
+    for i in range(minutes):
+        if np.random.rand() < occupancy[i] * 0.015:
+            duration = np.random.randint(45, 180)
+            hall[i:i+duration] += np.random.uniform(0.2, 0.4)
+
+    # -------------------------
+    # Kitchen (structured but not fixed)
+    # -------------------------
+    kitchen = np.zeros(minutes)
+    for period in [(6, 9), (12, 14), (18, 21)]:
+        mask = (t >= period[0]) & (t <= period[1])
+        indices = np.where(mask)[0]
+        if len(indices) > 0:
+            start = np.random.choice(indices)
+            duration = np.random.randint(20, 90)
+            kitchen[start:start+duration] += np.random.uniform(0.5, 1.0)
+
+    # -------------------------
+    # High power spikes (correlated to kitchen times)
+    # -------------------------
+    spikes = np.zeros(minutes)
+    for period in [(6, 9), (18, 21)]:
+        mask = (t >= period[0]) & (t <= period[1])
+        indices = np.where(mask)[0]
+        for _ in range(np.random.randint(1, 3)):
+            if len(indices) > 0:
+                start = np.random.choice(indices)
+                duration = np.random.randint(2, 8)
+                spikes[start:start+duration] += np.random.uniform(1.0, 2.0)
+
+    # -------------------------
+    # Combine realistic total
+    # -------------------------
+    total = router + fridge + bedroom + hall + kitchen + spikes
+
+    total += 0.02 * np.random.randn(minutes)
     total = np.clip(total, 0, None)
-
-    #stacking per-room loads (excluding base)
 
     per_room = np.vstack([
         bedroom,
@@ -60,43 +86,4 @@ def simulate_house_day(minuites = 1440):
         spikes
     ]).T
 
-    return total  , per_room
-
-
-
-
-
-"""
-here we are simulating base loads, time based and 
-
-
-base (always on)
-
-router 
-fridge 
-standby electronics
-
-cyclical loads 
-
-fridge compressor
-cealing fan , 
-
-water purifier pump 
-shows on/off patterns
-
-intermittent loads
-tv
-pc
-lighting (heavy in the evenings )
-
-spike loads(very critical for switching)
-
-mixer grinder(1kw)
-iron (1.2 kw)
-hairdryer (1.5kw)
-microwave (1 kw)
-
-these loads are short yet aggressive bursts which trips inverters 
-
-"""
-    
+    return total, per_room
