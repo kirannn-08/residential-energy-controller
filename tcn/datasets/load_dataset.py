@@ -6,7 +6,7 @@ from torch.utils.data import Dataset
 class LoadDataset(Dataset):
     """
     Sliding-window dataset for load forecasting.
-    Supports multichannel input.
+    Supports multichannel input and multichannel output.
     """
 
     def __init__(self, load_matrix, window_size):
@@ -27,10 +27,10 @@ class LoadDataset(Dataset):
         return len(self.data) - self.window_size
 
     def __getitem__(self, idx):
-        x = self.data[idx : idx + self.window_size]
+        x = self.data[idx: idx + self.window_size]
         y = self.data[idx + self.window_size]
 
-        x = torch.tensor(x.T)          # (channels, seq_len)
-        y = torch.tensor(y.sum()).unsqueeze(0)
+        x = torch.tensor(x.T)       # (channels, seq_len)
+        y = torch.tensor(y)         # (channels,)
 
         return x, y

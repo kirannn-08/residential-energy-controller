@@ -8,9 +8,6 @@ from tcn.models.load_tcn import LoadTCN
 from tcn.data.load_simulator import simulate_house_day
 
 
-# -----------------------------
-# Configuration
-# -----------------------------
 WINDOW_SIZE = 30
 BATCH_SIZE = 128
 EPOCHS = 10
@@ -20,22 +17,16 @@ TRAIN_SPLIT = 0.8
 
 def main():
 
-    # -----------------------------
-    # Generate multi-day dataset
-    # -----------------------------
     days = 10
-    total_series = []
+    all_rooms = []
 
     for _ in range(days):
-        total, _ = simulate_house_day()
-        total_series.append(total)
+        _, per_room = simulate_house_day()
+        all_rooms.append(per_room)
 
-    total_series = np.concatenate(total_series)
+    all_rooms = np.concatenate(all_rooms)
 
-    # reshape to (time, channels=1)
-    total_series = total_series.reshape(-1, 1)
-
-    dataset = LoadDataset(total_series, window_size=WINDOW_SIZE)
+    dataset = LoadDataset(all_rooms, window_size=WINDOW_SIZE)
 
     train_len = int(len(dataset) * TRAIN_SPLIT)
     val_len = len(dataset) - train_len
@@ -45,11 +36,9 @@ def main():
     train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True)
     val_loader = DataLoader(val_ds, batch_size=BATCH_SIZE, shuffle=False)
 
-    # -----------------------------
-    # Model
-    # -----------------------------
     model = LoadTCN(
-        input_channels=1,
+        input_channels=4,
+        output_channels=4,
         channel_sizes=[16, 16, 32],
         kernel_size=3,
         dropout=0.2
@@ -61,9 +50,6 @@ def main():
     criterion = nn.SmoothL1Loss()
     optimizer = torch.optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
-    # -----------------------------
-    # Training Loop
-    # -----------------------------
     for epoch in range(EPOCHS):
 
         model.train()
@@ -85,7 +71,6 @@ def main():
 
         train_loss /= len(train_loader)
 
-        # Validation
         model.eval()
         val_loss = 0.0
 
@@ -102,11 +87,11 @@ def main():
 
         print(
             f"Epoch [{epoch+1}/{EPOCHS}] "
-            f"Train MSE: {train_loss:.6f} | Val MSE: {val_loss:.6f}"
+            f"Train Loss: {train_loss:.6f} | Val Loss: {val_loss:.6f}"
         )
 
-    torch.save(model.state_dict(), "tcn/models/load_tcn_total.pt")
-    print("LoadTCN (Total) model saved.")
+    torch.save(model.state_dict(), "tcn/models/load_tcn_rooms.pt")
+    print("Room-wise LoadTCN saved.")
 
 
 if __name__ == "__main__":
